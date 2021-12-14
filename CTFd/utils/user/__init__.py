@@ -17,18 +17,6 @@ from CTFd.utils.security.signing import hmac
 def get_current_user():
     if authed():
         user = Users.query.filter_by(id=session["id"]).first()
-
-        # Check if the session is still valid
-        session_hash = session.get("hash")
-        if session_hash:
-            if session_hash != hmac(user.password):
-                logout_user()
-                if request.content_type == "application/json":
-                    error = 401
-                else:
-                    error = redirect(url_for("auth.login", next=request.full_path))
-                abort(error)
-
         return user
     else:
         return None
@@ -179,8 +167,8 @@ def get_user_recent_ips(user_id):
     hour_ago = datetime.datetime.now() - datetime.timedelta(hours=1)
     addrs = (
         Tracking.query.with_entities(Tracking.ip.distinct())
-        .filter(Tracking.user_id == user_id, Tracking.date >= hour_ago)
-        .all()
+            .filter(Tracking.user_id == user_id, Tracking.date >= hour_ago)
+            .all()
     )
     return {ip for (ip,) in addrs}
 
@@ -195,7 +183,7 @@ def get_wrong_submissions_per_minute(account_id):
     one_min_ago = datetime.datetime.utcnow() + datetime.timedelta(minutes=-1)
     fails = (
         db.session.query(Fails)
-        .filter(Fails.account_id == account_id, Fails.date >= one_min_ago)
-        .all()
+            .filter(Fails.account_id == account_id, Fails.date >= one_min_ago)
+            .all()
     )
     return len(fails)

@@ -9,7 +9,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from CTFd.cache import clear_user_recent_ips
 from CTFd.exceptions import UserNotFoundException, UserTokenExpiredException
-from CTFd.models import Tracking, db
+from CTFd.models import Tracking, Users, db
 from CTFd.utils import config, get_config, markdown
 from CTFd.utils.config import (
     can_send_mail,
@@ -184,18 +184,38 @@ def init_request_processors(app):
     @app.url_defaults
     def inject_theme(endpoint, values):
         if "theme" not in values and app.url_map.is_endpoint_expecting(
-            endpoint, "theme"
+                endpoint, "theme"
         ):
             values["theme"] = ctf_theme()
+
+    @app.before_request
+    def autologin_sso():
+        if "x-sso-mail" in request.headers:
+            mail = request.headers["x-sso-mail"]
+            user = Users.query.filter_by(email=mail).first()
+            if not user:
+                username = mail.split("@")[0]
+                user = Users(
+                    name=username,
+                    email=mail,
+                    verified=True,
+                )
+                db.session.add(user)
+                db.session.commit()
+                user.oauth_id = user.id
+                db.session.add(user)
+                db.session.commit()
+                db.session.flush()
+            session["id"] = user.id
 
     @app.before_request
     def needs_setup():
         if is_setup() is False:
             if request.endpoint in (
-                "views.setup",
-                "views.integrations",
-                "views.themes",
-                "views.files",
+                    "views.setup",
+                    "views.integrations",
+                    "views.themes",
+                    "views.files",
             ):
                 return
             else:
